@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FIRE Calculator | 財務自由計算器</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --primary: #2563EB;
+    --primary-light: #EFF6FF;
+    --primary-dark: #1D4ED8;
+    --success: #10B981;
+    --success-light: #ECFDF5;
+    --warning: #F59E0B;
+    --warning-light: #FFFBEB;
+    --danger: #EF4444;
+    --danger-light: #FEF2F2;
+    --text: #1E293B;
+    --text-muted: #64748B;
+    --border: #E2E8F0;
+    --bg: #F1F5F9;
+    --card: #FFFFFF;
+    --radius: 12px;
+    --shadow: 0 1px 3px rgba(0,0,0,.08), 0 4px 16px rgba(0,0,0,.06);
+    --shadow-sm: 0 1px 2px rgba(0,0,0,.06);
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5; }
+  /* Layout */
+  .app-header { background: linear-gradient(135deg, #1E40AF 0%, #2563EB 100%); color: #fff; padding: 20px 24px 16px; }
+  .app-header h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .app-header p { font-size: 13px; opacity: .8; }
+  .app-body { padding: 20px; max-width: 1200px; margin: 0 auto; }
+  /* Scenario Tabs */
+  .scenario-nav { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; flex-wrap: wrap; }
+  .tab-btn { padding: 8px 16px; border-radius: 8px; border: 2px solid var(--border); background: var(--card); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; transition: all .15s; display: flex; align-items: center; gap: 6px; }
+  .tab-btn.active { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  .tab-btn:hover:not(.active) { border-color: #CBD5E1; background: #F8FAFC; }
+  .tab-close { width: 16px; height: 16px; border-radius: 50%; background: #CBD5E1; color: #64748B; font-size: 11px; display: flex; align-items: center; justify-content: center; line-height: 1; }
+  .tab-close:hover { background: var(--danger); color: #fff; }
+  .add-scenario-btn { padding: 8px 14px; border-radius: 8px; border: 2px dashed var(--border); background: transparent; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: all .15s; }
+  .add-scenario-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+  /* Card */
+  .card { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 20px; margin-bottom: 16px; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+  .card-title .icon { width: 24px; height: 24px; border-radius: 6px; background: var(--primary-light); display: flex; align-items: center; justify-content: center; font-size: 12px; }
+  /* Form Grid */
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+  .form-full { grid-column: 1 / -1; }
+  .form-group { display: flex; flex-direction: column; gap: 4px; }
+  .form-group label { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+  .form-group input, .form-group select { padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13px; color: var(--text); background: #FAFAFA; transition: border-color .15s; outline: none; width: 100%; }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary); background: #fff; }
+  .form-group .hint { font-size: 11px; color: var(--text-muted); }
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+  .toggle { width: 38px; height: 20px; background: var(--border); border-radius: 10px; position: relative; transition: background .2s; flex-shrink: 0; }
+  .toggle.on { background: var(--primary); }
+  .toggle::after { content: ''; position: absolute; width: 16px; height: 16px; background: #fff; border-radius: 50%; top: 2px; left: 2px; transition: left .2s; box-shadow: var(--shadow-sm); }
+  .toggle.on::after { left: 20px; }
+  .toggle-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  /* Add-on Expenses */
+  .addon-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 10px; }
+  .addon-item { display: grid; grid-template-columns: 1fr 120px 80px 80px auto; gap: 8px; align-items: center; background: #F8FAFC; border-radius: 8px; padding: 10px 12px; border: 1.5px solid var(--border); }
+  .addon-item input { padding: 6px 8px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 12px; background: #fff; outline: none; width: 100%; }
+  .addon-item input:focus { border-color: var(--primary); }
+  .addon-remove { width: 28px; height: 28px; border-radius: 6px; background: #FEE2E2; color: var(--danger); border: none; cursor: pointer; font-size: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .addon-header { display: grid; grid-template-columns: 1fr 120px 80px 80px auto; gap: 8px; padding: 0 12px; margin-bottom: 4px; }
+  .addon-header span { font-size: 11px; font-weight: 600; color: var(--text-muted); }
+  .btn-add { padding: 7px 14px; border-radius: 8px; border: 1.5px dashed var(--border); background: transparent; color: var(--primary); font-size: 12px; font-weight: 600; cursor: pointer; transition: all .15s; }
+  .btn-add:hover { background: var(--primary-light); border-color: var(--primary); }
+  /* Radio Group */
+  .radio-group { display: flex; gap: 8px; }
+  .radio-opt { flex: 1; }
+  .radio-opt input { display: none; }
+  .radio-opt label { display: block; padding: 8px 12px; border-radius: 8px; border: 1.5px solid var(--border); text-align: center; cursor: pointer; font-size: 12px; font-weight: 600; color: var(--text-muted); transition: all .15s; }
+  .radio-opt input:checked + label { border-color: var(--primary); background: var(--primary-light); color: var(--primary); }
+  /* Buttons */
+  .btn-primary { padding: 12px 28px; background: var(--primary); color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; transition: background .15s; width: 100%; }
+  .btn-primary:hover { background: var(--primary-dark); }
+  /* Results */
+  .results-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .metric-card { background: var(--card); border-radius: var(--radius); padding: 16px 20px; box-shadow: var(--shadow); border-left: 4px solid transparent; }
+  .metric-card.fire { border-left-color: var(--success); }
+  .metric-card.warn { border-left-color: var(--warning); }
+  .metric-card.info { border-left-color: var(--primary); }
+  .metric-card.danger { border-left-color: var(--danger); }
+  .metric-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-muted); margin-bottom: 6px; }
+  .metric-value { font-size: 22px; font-weight: 800; color: var(--text); line-height: 1.2; }
+  .metric-sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+  /* Progress Bar */
+  .progress-wrap { margin: 6px 0 2px; }
+  .progress-bg { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 4px; transition: width .5s; }
+  .progress-pct { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+  /* Chart */
+  .chart-wrap { position: relative; height: 320px; }
+  /* Comparison Table */
+  .cmp-table { width: 100%; border-collapse: collapse; }
+  .cmp-table th, .cmp-table td { padding: 10px 14px; border-bottom: 1px solid var(--border); text-align: left; font-size: 13px; }
+  .cmp-table th { font-weight: 700; color: var(--text-muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; background: #F8FAFC; }
+  .cmp-table tr:last-child td { border-bottom: none; }
+  .cmp-table td:first-child { color: var(--text-muted); font-size: 12px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 700; }
+  .badge.green { background: var(--success-light); color: var(--success); }
+  .badge.yellow { background: var(--warning-light); color: #B45309; }
+  .badge.red { background: var(--danger-light); color: var(--danger); }
+  /* Collapsible */
+  .section-toggle { display: flex; align-items: center; justify-content: space-between; cursor: pointer; padding-bottom: 12px; border-bottom: 1px solid var(--border); margin-bottom: 14px; }
+  .section-toggle h3 { font-size: 14px; font-weight: 700; }
+  .section-toggle .chevron { transition: transform .2s; font-size: 12px; color: var(--text-muted); }
+  .section-toggle.collapsed .chevron { transform: rotate(-90deg); }
+  .collapsible-body.hidden { display: none; }
+  /* Scenario color dots */
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  /* Warning banner */
+  .banner { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; display: flex; gap: 8px; align-items: flex-start; }
+  .banner.info { background: var(--primary-light); color: var(--primary-dark); }
+  .banner.warn { background: var(--warning-light); color: #92400E; }
+  /* Scenario Colors */
+  .sc-0 { --sc-color: #2563EB; }
+  .sc-1 { --sc-color: #10B981; }
+  .sc-2 { --sc-color: #F59E0B; }
+  .scenario-header-bar { height: 4px; border-radius: 4px 4px 0 0; background: var(--sc-color, var(--primary)); }
+  @media (max-width: 600px) {
+    .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
+    .addon-item { grid-template-columns: 1fr 1fr; }
+    .addon-item .addon-desc { grid-column: 1 / -1; }
+    .results-grid { grid-template-columns: 1fr 1fr; }
+    .app-body { padding: 12px; }
+  }
+  .hidden { display: none !important; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+</style>
+</head>
+<body>
+<div class="app-header">
+  <h1>🔥 FIRE Calculator</h1>
+  <p>財務自由退休計算器 — 計算你嘅資產夠唔夠提早退休，支援最多 3 個 Scenario 比較</p>
+</div>
+
+<div class="app-body">
+  <!-- Scenario Tabs -->
+  <div class="scenario-nav" id="scenarioNav"></div>
+
+  <!-- Input Panel -->
+  <div id="inputPanel"></div>
+
+  <!-- Calculate Button -->
+  <button class="btn-primary" onclick="calculateAll()">📊 計算 &amp; 比較所有 Scenarios</button>
+
+  <!-- Results -->
+  <div id="resultsPanel" class="hidden" style="margin-top:20px;"></div>
+</div>
+
+<script>
+// ─── State ───────────────────────────────────────────────────────────────────
+const COLORS = ['#2563EB', '#10B981', '#F59E0B'];
+const COLOR_LABELS = ['藍', '綠', '橙'];
+
+const DEFAULT_SCENARIO = () => ({
+  name: 'Scenario 1',
+  currentAge: 35,
+  currentAssets: 20000000,
+  monthlySavings: 200000,
+  monthlyExpenses: 300000,
+  investmentReturn: 6,
+  inflation: 2,
+  swr: 4,
+  addOns: [],
+  property: {
+    enabled: false,
+    price: 60000000,
+    purchaseYear: 2,
+    type: 'mortgage', // 'mortgage' | 'cash'
+    downPaymentPct: 30,
+    mortgageRate: 3.5,
+    mortgageTerm: 25,
+    appreciationRate: 3,
+    includeInNetWorth: true
+  }
+});
+
+let scenarios = [DEFAULT_SCENARIO()];
+let activeIdx = 0;
+let chart = null;
+let addonCounter = 0;
+
+// ─── Scenario Management ─────────────────────────────────────────────────────
+function addScenario() {
+  if (scenarios.length >= 3) return;
+  const s = DEFAULT_SCENARIO();
+  s.name = `Scenario ${scenarios.length + 1}`;
+  // Copy current scenario as base
+  const cur = readScenario(activeIdx);
+  Object.assign(s, { ...cur, name: s.name, addOns: cur.addOns.map(a => ({...a})) });
+  scenarios.push(s);
+  activeIdx = scenarios.length - 1;
+  render();
+}
+
+function removeScenario(idx) {
+  if (scenarios.length <= 1) return;
+  scenarios.splice(idx, 1);
+  if (activeIdx >= scenarios.length) activeIdx = scenarios.length - 1;
+  render();
+}
+
+function switchScenario(idx) {
+  saveCurrentScenario();
+  activeIdx = idx;
+  render();
+}
+
+function saveCurrentScenario() {
+  scenarios[activeIdx] = readScenario(activeIdx);
+}
+
+// ─── Read inputs into scenario object ────────────────────────────────────────
+function readScenario(idx) {
+  const s = { ...scenarios[idx] };
+  const v = id => { const el = document.getElementById(`${id}_${idx}`); return el ? el.value : null; };
+  const n = id => { const val = v(id); return val !== null ? parseFloat(val) || 0 : s[id] || 0; };
+  const b = id => { const el = document.getElementById(`${id}_${idx}`); return el ? el.dataset.on === '1' : s.property.enabled; };
+
+  s.name = v('sc_name') || s.name;
+  s.currentAge = n('currentAge');
+  s.currentAssets = n('currentAssets');
+  s.monthlySavings = n('monthlySavings');
+  s.monthlyExpenses = n('monthlyExpenses');
+  s.investmentReturn = n('investmentReturn');
+  s.inflation = n('inflation');
+  s.swr = n('swr');
+
+  // Add-ons
+  s.addOns = [];
+  document.querySelectorAll(`.addon-row-${idx}`).forEach(row => {
+    s.addOns.push({
+      id: row.dataset.id,
+      desc: row.querySelector('.ao-desc').value,
+      monthly: parseFloat(row.querySelector('.ao-monthly').value) || 0,
+      startYear: parseFloat(row.querySelector('.ao-start').value) || 0,
+      duration: parseFloat(row.querySelector('.ao-dur').value) || 0
+    });
+  });
+
+  // Property
+  s.property = { ...s.property };
+  s.property.enabled = b('propToggle');
+  const ptype = document.querySelector(`input[name="propType_${idx}"]:checked`);
+  if (ptype) s.property.type = ptype.value;
+  s.property.price = n('propPrice');
+  s.property.purchaseYear = n('propPurchaseYear');
+  s.property.downPaymentPct = n('propDownPct');
+  s.property.mortgageRate = n('propMortgageRate');
+  s.property.mortgageTerm = n('propMortgageTerm');
+  s.property.appreciationRate = n('propAppreciation');
+  const inclEl = document.getElementById(`propInclude_${idx}`);
+  if (inclEl) s.property.includeInNetWorth = inclEl.dataset.on === '1';
+
+  return s;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function render() {
+  renderTabs();
+  renderInputPanel();
+}
+
+function renderTabs() {
+  const nav = document.getElementById('scenarioNav');
+  nav.innerHTML = scenarios.map((s, i) => `
+    <button class="tab-btn ${i === activeIdx ? 'active' : ''}" onclick="switchScenario(${i})">
+      <span class="dot" style="background:${COLORS[i]}"></span>
+      <span>${s.name}</span>
+      ${scenarios.length > 1 ? `<span class="tab-close" onclick="event.stopPropagation();removeScenario(${i})">✕</span>` : ''}
+    </button>
+  `).join('') + (scenarios.length < 3 ? `<button class="add-scenario-btn" onclick="addScenario()">＋ 加 Scenario</button>` : '');
+}
+
+function renderInputPanel() {
+  const s = scenarios[activeIdx];
+  const i = activeIdx;
+  document.getElementById('inputPanel').innerHTML = `
+    <div class="sc-${i}">
+      <div class="scenario-header-bar"></div>
+      <div class="card" style="border-radius: 0 0 var(--radius) var(--radius); margin-bottom:16px;">
+
+        <!-- Scenario Name -->
+        <div class="form-group" style="margin-bottom:16px;">
+          <label>Scenario 名稱</label>
+          <input type="text" id="sc_name_${i}" value="${s.name}" oninput="scenarios[${i}].name=this.value;renderTabs()">
+        </div>
+
+        <!-- Basic Info -->
+        <div class="section-toggle" onclick="toggleSection('basic_${i}', this)">
+          <h3>👤 基本資料</h3>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="collapsible-body" id="basic_${i}">
+          <div class="form-grid">
+            <div class="form-group">
+              <label>現時年齡</label>
+              <input type="number" id="currentAge_${i}" value="${s.currentAge}" min="18" max="80">
+            </div>
+            <div class="form-group">
+              <label>現有可投資資產 (JPY)</label>
+              <input type="number" id="currentAssets_${i}" value="${s.currentAssets}" oninput="updateHint(this,'hint_assets_${i}')">
+              <span class="hint" id="hint_assets_${i}">${fmtHKD(s.currentAssets)}</span>
+            </div>
+            <div class="form-group">
+              <label>每月儲蓄 (JPY)</label>
+              <input type="number" id="monthlySavings_${i}" value="${s.monthlySavings}" oninput="updateHint(this,'hint_sav_${i}')">
+              <span class="hint" id="hint_sav_${i}">${fmtHKD(s.monthlySavings)} / 月</span>
+            </div>
+            <div class="form-group">
+              <label>每月基本生活費 (JPY)</label>
+              <input type="number" id="monthlyExpenses_${i}" value="${s.monthlyExpenses}" oninput="updateHint(this,'hint_exp_${i}')">
+              <span class="hint" id="hint_exp_${i}">${fmtHKD(s.monthlyExpenses)} / 月 → 年 ${fmtHKD(s.monthlyExpenses*12)}</span>
+            </div>
+          </div>
+        </div>
+
+        <hr>
+        <!-- Assumptions -->
+        <div class="section-toggle" onclick="toggleSection('assum_${i}', this)">
+          <h3>📈 投資假設</h3>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="collapsible-body" id="assum_${i}">
+          <div class="form-grid-3">
+            <div class="form-group">
+              <label>預期年回報率 (%)</label>
+              <input type="number" id="investmentReturn_${i}" value="${s.investmentReturn}" step="0.1" min="0" max="20">
+            </div>
+            <div class="form-group">
+              <label>通脹率 (%) / 年</label>
+              <input type="number" id="inflation_${i}" value="${s.inflation}" step="0.1" min="0" max="15">
+            </div>
+            <div class="form-group">
+              <label>安全提款率 SWR (%)</label>
+              <input type="number" id="swr_${i}" value="${s.swr}" step="0.1" min="1" max="10">
+              <span class="hint">通常用 4% Rule</span>
+            </div>
+          </div>
+        </div>
+
+        <hr>
+        <!-- Add-on Expenses -->
+        <div class="section-toggle" onclick="toggleSection('addons_${i}', this)">
+          <h3>💸 附加支出 (Add-on Expenses)</h3>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="collapsible-body" id="addons_${i}">
+          <div class="banner info">💡 可以加入有時限嘅支出，例如子女學費、供車、旅遊基金等。「年期」設 0 代表長期持續。</div>
+          <div class="addon-header">
+            <span>描述</span><span>每月金額</span><span>開始(年後)</span><span>年期</span><span></span>
+          </div>
+          <div class="addon-list" id="addonList_${i}">
+            ${s.addOns.map(a => renderAddonRow(a, i)).join('')}
+          </div>
+          <button class="btn-add" onclick="addAddonRow(${i})">＋ 加附加支出</button>
+        </div>
+
+        <hr>
+        <!-- Property -->
+        <div class="section-toggle" onclick="toggleSection('prop_${i}', this)">
+          <h3>🏠 買樓 Scenario</h3>
+          <span class="chevron">▾</span>
+        </div>
+        <div class="collapsible-body" id="prop_${i}">
+          <div style="margin-bottom:14px;">
+            <div class="toggle-row" onclick="toggleProp(${i})">
+              <div class="toggle ${s.property.enabled ? 'on' : ''}" id="propToggle_${i}" data-on="${s.property.enabled ? 1 : 0}"></div>
+              <span class="toggle-label">包含買樓計劃</span>
+            </div>
+          </div>
+          <div id="propDetails_${i}" class="${s.property.enabled ? '' : 'hidden'}">
+            <div class="form-grid" style="margin-bottom:12px;">
+              <div class="form-group">
+                <label>樓價 (JPY)</label>
+                <input type="number" id="propPrice_${i}" value="${s.property.price}" oninput="updateHint(this,'hint_price_${i}')">
+                <span class="hint" id="hint_price_${i}">${fmtHKD(s.property.price)}</span>
+              </div>
+              <div class="form-group">
+                <label>購入時間 (幾年後，0 = 即時)</label>
+                <input type="number" id="propPurchaseYear_${i}" value="${s.property.purchaseYear}" min="0" max="30">
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom:12px;">
+              <label style="margin-bottom:6px;">付款方式</label>
+              <div class="radio-group">
+                <div class="radio-opt">
+                  <input type="radio" name="propType_${i}" id="propMtg_${i}" value="mortgage" ${s.property.type === 'mortgage' ? 'checked' : ''} onchange="toggleMortgageFields(${i})">
+                  <label for="propMtg_${i}">🏦 按揭 Mortgage</label>
+                </div>
+                <div class="radio-opt">
+                  <input type="radio" name="propType_${i}" id="propCash_${i}" value="cash" ${s.property.type === 'cash' ? 'checked' : ''} onchange="toggleMortgageFields(${i})">
+                  <label for="propCash_${i}">💵 Full Cash（無按揭）</label>
+                </div>
+              </div>
+            </div>
+
+            <div id="mortgageFields_${i}" class="${s.property.type === 'cash' ? 'hidden' : ''}">
+              <div class="form-grid-3">
+                <div class="form-group">
+                  <label>首付比例 (%)</label>
+                  <input type="number" id="propDownPct_${i}" value="${s.property.downPaymentPct}" min="10" max="100" step="5">
+                </div>
+                <div class="form-group">
+                  <label>按揭利率 (% / 年)</label>
+                  <input type="number" id="propMortgageRate_${i}" value="${s.property.mortgageRate}" step="0.1" min="0" max="15">
+                </div>
+                <div class="form-group">
+                  <label>按揭年期 (年)</label>
+                  <input type="number" id="propMortgageTerm_${i}" value="${s.property.mortgageTerm}" min="5" max="30">
+                </div>
+              </div>
+            </div>
+
+            <div class="form-grid" style="margin-top:12px;">
+              <div class="form-group">
+                <label>樓價升值率 (% / 年)</label>
+                <input type="number" id="propAppreciation_${i}" value="${s.property.appreciationRate}" step="0.1">
+              </div>
+              <div class="form-group">
+                <label>計算 FIRE 時</label>
+                <div class="toggle-row" style="margin-top:6px;" onclick="togglePropInclude(${i})">
+                  <div class="toggle ${s.property.includeInNetWorth ? 'on' : ''}" id="propInclude_${i}" data-on="${s.property.includeInNetWorth ? 1 : 0}"></div>
+                  <span class="toggle-label" style="font-size:12px;">計入樓價作資產</span>
+                </div>
+                <span class="hint">不計入 = 純靠金融資產 FIRE</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  `;
+}
+
+function renderAddonRow(a, scIdx) {
+  return `
+    <div class="addon-item addon-row-${scIdx}" data-id="${a.id}">
+      <input class="ao-desc addon-desc" type="text" placeholder="e.g. 子女學費" value="${a.desc || ''}">
+      <input class="ao-monthly" type="number" placeholder="每月 ¥" value="${a.monthly || ''}">
+      <input class="ao-start" type="number" placeholder="0" value="${a.startYear || 0}" min="0">
+      <input class="ao-dur" type="number" placeholder="0=長期" value="${a.duration || 0}" min="0">
+      <button class="addon-remove" onclick="removeAddon(this)">✕</button>
+    </div>
+  `;
+}
+
+function addAddonRow(scIdx) {
+  const list = document.getElementById(`addonList_${scIdx}`);
+  const a = { id: ++addonCounter, desc: '', monthly: 0, startYear: 0, duration: 10 };
+  const div = document.createElement('div');
+  div.innerHTML = renderAddonRow(a, scIdx);
+  list.appendChild(div.firstElementChild);
+}
+
+function removeAddon(btn) { btn.closest('.addon-item').remove(); }
+
+function toggleSection(id, toggler) {
+  const body = document.getElementById(id);
+  body.classList.toggle('hidden');
+  toggler.classList.toggle('collapsed');
+}
+
+function toggleProp(idx) {
+  const t = document.getElementById(`propToggle_${idx}`);
+  const isOn = t.dataset.on === '1';
+  t.dataset.on = isOn ? '0' : '1';
+  t.classList.toggle('on');
+  document.getElementById(`propDetails_${idx}`).classList.toggle('hidden', isOn);
+}
+
+function togglePropInclude(idx) {
+  const t = document.getElementById(`propInclude_${idx}`);
+  const isOn = t.dataset.on === '1';
+  t.dataset.on = isOn ? '0' : '1';
+  t.classList.toggle('on');
+}
+
+function toggleMortgageFields(idx) {
+  const isCash = document.getElementById(`propCash_${idx}`).checked;
+  document.getElementById(`mortgageFields_${idx}`).classList.toggle('hidden', isCash);
+}
+
+function updateHint(el, hintId) {
+  const hint = document.getElementById(hintId);
+  if (hint) hint.textContent = fmtHKD(parseFloat(el.value) || 0);
+}
+
+// ─── Calculation Engine ───────────────────────────────────────────────────────
+function calcMortgageMonthly(principal, annualRate, termYears) {
+  if (annualRate === 0) return principal / (termYears * 12);
+  const r = annualRate / 100 / 12;
+  const n = termYears * 12;
+  return principal * r * Math.pow(1 + r, n) / (Math.pow(1 + r, n) - 1);
+}
+
+function calculate(s) {
+  const MAX_YEARS = 65;
+  const returnRate = s.investmentReturn / 100;
+  const inflRate = s.inflation / 100;
+  const swr = s.swr / 100;
+  const annualSavings = s.monthlySavings * 12;
+  const baseAnnualExp = s.monthlyExpenses * 12;
+
+  let mortgageMonthly = 0;
+  if (s.property.enabled && s.property.type === 'mortgage') {
+    const principal = s.property.price * (1 - s.property.downPaymentPct / 100);
+    mortgageMonthly = calcMortgageMonthly(principal, s.property.mortgageRate, s.property.mortgageTerm);
+  }
+
+  let assets = s.currentAssets;
+  let propValue = 0;
+  let fireAchievedYear = null;
+  let assetsDepletedYear = null; // tracked inside loop to catch large negative jumps
+  const projection = [];
+
+  for (let y = 0; y <= MAX_YEARS; y++) {
+    // Inflate expenses
+    const inflFactor = Math.pow(1 + inflRate, y);
+    let annualExp = baseAnnualExp * inflFactor;
+
+    // Add-on expenses
+    for (const ao of s.addOns) {
+      const dur = ao.duration === 0 ? 999 : ao.duration;
+      if (y >= ao.startYear && y < ao.startYear + dur) {
+        annualExp += ao.monthly * 12 * inflFactor;
+      }
+    }
+
+    // Property appreciation (propValue=0 before purchase, so no effect)
+    if (propValue > 0) {
+      propValue *= (1 + s.property.appreciationRate / 100);
+    }
+
+    // Property purchase this year
+    if (s.property.enabled && y === s.property.purchaseYear) {
+      if (s.property.type === 'cash') {
+        assets -= s.property.price;
+      } else {
+        assets -= s.property.price * (s.property.downPaymentPct / 100);
+      }
+      propValue = s.property.price;
+    }
+
+    // Mortgage payment — kept separate from lifestyle, NOT included in SWR calculation.
+    // Mortgage is a finite obligation; using SWR on it would imply paying it forever, which is wrong.
+    let mortgageAnnual = 0;
+    if (s.property.enabled && s.property.type === 'mortgage' && propValue > 0) {
+      const yearsOwned = y - s.property.purchaseYear;
+      if (yearsOwned >= 0 && yearsOwned < s.property.mortgageTerm) {
+        mortgageAnnual = mortgageMonthly * 12;
+      }
+    }
+
+    // FIRE number = lifestyle expenses only / SWR (clean, steady line on chart)
+    const fireNumber = annualExp / swr;
+
+    // Total annual outflow during retirement = lifestyle + any remaining mortgage
+    const totalWithdrawal = annualExp + mortgageAnnual;
+
+    const investableAssets = Math.max(0, assets);
+    const netWorth = investableAssets + (s.property.enabled && s.property.includeInNetWorth ? propValue : 0);
+    const checkAssets = s.property.enabled && s.property.includeInNetWorth ? netWorth : investableAssets;
+
+    if (fireAchievedYear === null && checkAssets >= fireNumber) {
+      fireAchievedYear = y;
+    }
+
+    projection.push({
+      year: y,
+      age: s.currentAge + y,
+      assets: investableAssets,
+      propValue: propValue,
+      netWorth,
+      annualExp,
+      mortgageAnnual,
+      totalWithdrawal,
+      fireNumber,
+      isFire: fireAchievedYear !== null && y >= fireAchievedYear
+    });
+
+    // Grow assets:
+    // - Accumulation (FIRE not yet reached AND has income/savings): expenses paid from income
+    // - Retirement (FIRE reached OR savings=0): expenses withdrawn from portfolio
+    //   If savings=0, user has no income → already drawing from portfolio even before FIRE target
+    const inRetirement = fireAchievedYear !== null || annualSavings === 0;
+    if (!inRetirement) {
+      assets = assets * (1 + returnRate) + annualSavings;
+    } else {
+      assets = assets * (1 + returnRate) - totalWithdrawal;
+      // Track depletion (before clamping) so large negative jumps don't escape detection
+      if (assets <= 0 && assetsDepletedYear === null) {
+        assetsDepletedYear = y + 1;
+      }
+    }
+
+    if (assets < -50000 && y > (fireAchievedYear ?? MAX_YEARS)) break;
+  }
+
+  const firstYearData = projection[0];
+  const firstYearFireNum = firstYearData?.fireNumber || 0;
+  const effectiveStartAssets = firstYearData
+    ? (s.property.enabled && s.property.includeInNetWorth ? firstYearData.netWorth : firstYearData.assets)
+    : s.currentAssets;
+  const progress = (effectiveStartAssets / firstYearFireNum) * 100;
+
+  // Sustainability: depletion tracked inside loop above
+  const fireIsSustainable = fireAchievedYear !== null && assetsDepletedYear === null;
+
+  return {
+    projection,
+    fireAchievedYear,
+    fireIsSustainable,
+    assetsDepletedYear,
+    mortgageMonthly,
+    progress,
+    firstYearFireNum,
+    ageAtFire: fireAchievedYear !== null ? s.currentAge + fireAchievedYear : null
+  };
+}
+
+// ─── Render Results ───────────────────────────────────────────────────────────
+function calculateAll() {
+  // Save current (active) scenario from DOM, keep stored data for others
+  scenarios[activeIdx] = readScenario(activeIdx);
+  const allS = scenarios.map(s => ({ ...s, addOns: s.addOns.map(a => ({...a})) }));
+
+  const results = allS.map(s => calculate(s));
+
+  const panel = document.getElementById('resultsPanel');
+  panel.classList.remove('hidden');
+
+  let html = `
+    <div class="card">
+      <div class="card-title"><span class="icon">📊</span> 結果比較</div>
+      ${renderComparisonTable(allS, results)}
+    </div>
+    <div class="card">
+      <div class="card-title"><span class="icon">📈</span> 資產投影圖</div>
+      <div class="chart-wrap"><canvas id="projChart"></canvas></div>
+    </div>
+  `;
+
+  // Per-scenario detail
+  allS.forEach((s, i) => {
+    const r = results[i];
+    html += renderScenarioDetail(s, r, i);
+  });
+
+  panel.innerHTML = html;
+  renderChart(allS, results);
+  panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function renderComparisonTable(scenarios, results) {
+  const rows = [
+    ['FIRE 數字 (首年)', (s, r) => fmtHKD(r.firstYearFireNum)],
+    ['現有資產', (s, r) => fmtHKD(s.currentAssets)],
+    ['進度', (s, r) => {
+      const pct = Math.min(r.progress, 100).toFixed(1);
+      const cls = r.progress >= 100 ? 'green' : r.progress >= 50 ? 'yellow' : 'red';
+      return `<span class="badge ${cls}">${pct}%</span>`;
+    }],
+    ['達到 FIRE 年齡', (s, r) => {
+      if (!r.ageAtFire) return '<span class="badge red">未能達到</span>';
+      const cls = r.fireIsSustainable ? 'green' : 'yellow';
+      const label = r.fireIsSustainable ? `${r.ageAtFire} 歲 ✅` : `${r.ageAtFire} 歲 ⚠️不持久`;
+      return `<span class="badge ${cls}">${label}</span>`;
+    }],
+    ['月生活費 (基本)', (s, r) => fmtHKD(s.monthlyExpenses) + ' / 月'],
+    ['每月按揭 (另計)', (s, r) => s.property.enabled && s.property.type === 'mortgage' ? fmtHKD(r.mortgageMonthly) + ' / 月' : '—'],
+    ['投資回報假設', (s, r) => `${s.investmentReturn}% / 年`],
+    ['通脹假設', (s, r) => `${s.inflation}% / 年`],
+  ];
+
+  const headers = scenarios.map((s, i) => `
+    <th>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span class="dot" style="background:${COLORS[i]}"></span>${s.name}
+      </div>
+    </th>
+  `).join('');
+
+  const bodyRows = rows.map(([label, fn]) => `
+    <tr>
+      <td>${label}</td>
+      ${scenarios.map((s, i) => `<td>${fn(s, results[i])}</td>`).join('')}
+    </tr>
+  `).join('');
+
+  return `
+    <div style="overflow-x:auto;">
+      <table class="cmp-table">
+        <thead><tr><th></th>${headers}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderScenarioDetail(s, r, idx) {
+  const fireStatus = r.fireAchievedYear !== null;
+  const fireSustainable = r.fireIsSustainable;
+  const progressPct = Math.min(r.progress, 100);
+  const progressColor = r.progress >= 100 ? 'var(--success)' : r.progress >= 50 ? 'var(--warning)' : 'var(--danger)';
+  const fireCardClass = !fireStatus ? 'danger' : fireSustainable ? 'fire' : 'warn';
+  const fireIcon = !fireStatus ? '❌' : fireSustainable ? '✅' : '⚠️';
+  const fireLabel = !fireStatus ? '未能達到' : fireSustainable ? '可持續 FIRE' : 'FIRE 但唔持久';
+  const fireSub = !fireStatus
+    ? '按現有資產及假設無法達到'
+    : fireSustainable
+      ? `${r.ageAtFire} 歲 / ${r.fireAchievedYear} 年後，組合可持續`
+      : `${r.ageAtFire} 歲達到，但組合將於 ${r.assetsDepletedYear ? s.currentAge + r.assetsDepletedYear + '歲耗盡' : '晚年不足'}，需增加資產或減少支出`;
+
+  const peakData = r.projection.reduce((max, d) => d.netWorth > max.netWorth ? d : max, r.projection[0] || {});
+
+  return `
+    <div class="card sc-${idx}" style="border-top:4px solid ${COLORS[idx]};">
+      <div class="card-title">
+        <span class="dot" style="background:${COLORS[idx]}"></span>
+        ${s.name} — 詳細分析
+      </div>
+      <div class="results-grid">
+        <div class="metric-card ${fireCardClass}">
+          <div class="metric-label">FIRE 狀態</div>
+          <div class="metric-value">${fireIcon} ${fireLabel}</div>
+          <div class="metric-sub">${fireSub}</div>
+        </div>
+        <div class="metric-card info">
+          <div class="metric-label">FIRE 目標數字</div>
+          <div class="metric-value">${fmtHKD(r.firstYearFireNum)}</div>
+          <div class="metric-sub">以 ${s.swr}% SWR 計算</div>
+          <div class="progress-wrap">
+            <div class="progress-bg"><div class="progress-fill" style="width:${progressPct}%;background:${progressColor}"></div></div>
+            <div class="progress-pct">現時進度 ${r.progress.toFixed(1)}%</div>
+          </div>
+        </div>
+        <div class="metric-card ${r.fireAchievedYear !== null ? 'fire' : 'warn'}">
+          <div class="metric-label">距離 FIRE</div>
+          <div class="metric-value">${r.fireAchievedYear !== null ? r.fireAchievedYear + ' 年' : 'N/A'}</div>
+          <div class="metric-sub">年齡 ${r.ageAtFire ?? '—'} 歲退休</div>
+        </div>
+        ${s.property.enabled ? `
+        <div class="metric-card info">
+          <div class="metric-label">每月按揭供款 <span style="font-weight:400;font-size:10px;">(不計入 FIRE 目標)</span></div>
+          <div class="metric-value">${s.property.type === 'mortgage' ? fmtHKD(r.mortgageMonthly) : '—'}</div>
+          <div class="metric-sub">${s.property.type === 'cash' ? '一筆過 Full Cash 購入' : `${s.property.mortgageTerm} 年按揭 @ ${s.property.mortgageRate}%，退休後從資產扣`}</div>
+        </div>` : ''}
+        <div class="metric-card info">
+          <div class="metric-label">最高淨資產</div>
+          <div class="metric-value">${fmtHKD(peakData.netWorth || 0)}</div>
+          <div class="metric-sub">${peakData.age ?? '—'} 歲時達到</div>
+        </div>
+      </div>
+
+      ${s.addOns.length > 0 ? `
+      <div style="margin-top:12px;">
+        <div style="font-size:12px;font-weight:700;color:var(--text-muted);margin-bottom:8px;">附加支出明細</div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          ${s.addOns.map(a => `
+            <div style="background:#F8FAFC;border:1.5px solid var(--border);border-radius:8px;padding:6px 12px;font-size:12px;">
+              <strong>${a.desc || '無名'}</strong>：${fmtHKD(a.monthly)}/月
+              ${a.startYear > 0 ? `，${a.startYear}年後開始` : '，即時開始'}
+              ${a.duration > 0 ? `，持續${a.duration}年` : '，長期'}
+            </div>
+          `).join('')}
+        </div>
+      </div>` : ''}
+    </div>
+  `;
+}
+
+// ─── Chart ────────────────────────────────────────────────────────────────────
+function renderChart(scenarios, results) {
+  if (chart) { chart.destroy(); chart = null; }
+  const ctx = document.getElementById('projChart').getContext('2d');
+
+  // Build common year axis (up to 50 years)
+  const maxYears = Math.max(...results.map(r => r.projection.length));
+  const labels = Array.from({ length: Math.min(maxYears, 51) }, (_, i) => `年${i}`);
+
+  const datasets = [];
+  // Annual expenses — shared Y2 axis, one line per scenario
+  // Use a faded version on the right axis so it doesn't visually compete with assets
+  results.forEach((r, i) => {
+    const s = scenarios[i];
+    const color = COLORS[i];
+
+    // Total assets line (solid, primary)
+    datasets.push({
+      label: `${s.name} 總資產`,
+      data: r.projection.slice(0, 51).map(d => d.netWorth),
+      borderColor: color,
+      backgroundColor: color + '18',
+      borderWidth: 2.5,
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 5,
+      yAxisID: 'y',
+    });
+
+    // Annual expenses line (dashed, thinner, same colour but faded)
+    datasets.push({
+      label: `${s.name} 年支出`,
+      data: r.projection.slice(0, 51).map(d => d.totalWithdrawal),
+      borderColor: color + '99',
+      borderWidth: 1.5,
+      borderDash: [5, 5],
+      fill: false,
+      tension: 0.3,
+      pointRadius: 0,
+      pointHoverRadius: 4,
+      yAxisID: 'y',
+    });
+
+    // FIRE achieved marker (star) if applicable
+    if (r.fireAchievedYear !== null && r.fireAchievedYear < 51) {
+      const markerData = new Array(Math.min(r.projection.length, 51)).fill(null);
+      markerData[r.fireAchievedYear] = r.projection[r.fireAchievedYear].netWorth;
+      datasets.push({
+        label: `${s.name} FIRE 點 (${r.fireIsSustainable ? '持續✅' : '不持久⚠️'})`,
+        data: markerData,
+        borderColor: r.fireIsSustainable ? '#10B981' : '#F59E0B',
+        backgroundColor: r.fireIsSustainable ? '#10B981' : '#F59E0B',
+        borderWidth: 2,
+        pointRadius: markerData.map(v => v !== null ? 8 : 0),
+        pointStyle: 'star',
+        showLine: false,
+        fill: false,
+        yAxisID: 'y',
+      });
+    }
+  });
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+        tooltip: {
+          callbacks: {
+            label: ctx => ctx.parsed.y !== null ? `${ctx.dataset.label}: ${fmtHKD(ctx.parsed.y)}` : null,
+            filter: item => item.parsed.y !== null
+          }
+        }
+      },
+      scales: {
+        x: { grid: { color: '#F1F5F9' }, ticks: { font: { size: 11 } } },
+        y: {
+          grid: { color: '#F1F5F9' },
+          ticks: {
+            font: { size: 11 },
+            callback: v => {
+              if (v >= 1e8) return '¥' + (v/1e8).toFixed(1) + '億';
+              if (v >= 1e4) return '¥' + Math.round(v/1e4) + '万';
+              return '¥' + v.toLocaleString();
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function id(s) { return document.getElementById(s); }
+function fmtHKD(n) {
+  if (!n && n !== 0) return '—';
+  const abs = Math.abs(n);
+  const sign = n < 0 ? '-' : '';
+  if (abs >= 1e8) return sign + '¥' + (abs/1e8).toFixed(2) + '億';
+  if (abs >= 1e4) return sign + '¥' + Math.round(abs/1e4).toLocaleString() + '万';
+  return sign + '¥' + Math.round(abs).toLocaleString();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+render();
+</script>
+</body>
+</html>
